@@ -1,60 +1,62 @@
 import './style.css'
-import heroImg from './assets/hero.png'
-import typescriptLogo from './assets/typescript.svg'
-import viteLogo from './assets/vite.svg'
-import { setupCounter } from './counter.ts'
+import { getGroups, getTimetable, getUniversities } from './api'
+import { availableDate, fromKey, openAvailableDate, saveSelection, shift, state } from './state'
+import { render } from './ui'
+import type { View } from './types'
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
-
-<div class="ticks"></div>
-
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
-
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
-
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+let request = 0
+async function loadTimetable() {
+  const current = ++request
+  state.error = ''
+  state.timetable = null
+  if (!state.universityId || !state.groupId) { state.loading = false; render(); return }
+  state.loading = true; render()
+  try {
+    const result = await getTimetable(state.universityId, state.groupId)
+    if (current === request) { state.timetable = result; openAvailableDate(result) }
+  }
+  catch (error) { if (current === request) state.error = error instanceof Error ? error.message : 'Не удалось загрузить расписание' }
+  finally { if (current === request) { state.loading = false; render() } }
+}
+async function loadGroups() {
+  const current = ++request
+  state.groups = []; state.timetable = null; state.error = ''; state.loading = !!state.universityId; render()
+  if (!state.universityId) { state.loading = false; render(); return }
+  try {
+    const groups = await getGroups(state.universityId)
+    if (current !== request) return
+    state.groups = groups
+    if (!groups.some(group => group.id === state.groupId)) state.groupId = ''
+    saveSelection()
+    await loadTimetable()
+  } catch (error) { if (current === request) { state.loading = false; state.error = error instanceof Error ? error.message : 'Не удалось загрузить группы'; render() } }
+}
+async function init() {
+  state.loading = true; render()
+  try {
+    state.universities = await getUniversities()
+    if (!state.universities.some(item => item.id === state.universityId)) { state.universityId = ''; state.groupId = '' }
+    await loadGroups()
+  } catch (error) { state.loading = false; state.error = error instanceof Error ? error.message : 'Не удалось загрузить список вузов'; render() }
+}
+document.addEventListener('change', event => {
+  const target = event.target as HTMLSelectElement
+  if (target.id === 'university') { state.universityId = target.value; state.groupId = ''; saveSelection(); void loadGroups() }
+  if (target.id === 'group') { state.groupId = target.value; saveSelection(); void loadTimetable() }
+})
+document.addEventListener('click', event => {
+  const button = (event.target as Element).closest<HTMLButtonElement>('button')
+  if (!button) return
+  if (button.dataset.date) { state.date = fromKey(button.dataset.date); render() }
+  if (button.dataset.view) { state.view = button.dataset.view as View; render() }
+  if (button.dataset.action === 'prev') { state.date = shift(state.date, -7); render() }
+  if (button.dataset.action === 'next') { state.date = shift(state.date, 7); render() }
+  if (button.dataset.action === 'today') { state.date = new Date(); render() }
+  if (button.dataset.action === 'available' && state.timetable) {
+    const date = availableDate(state.timetable)
+    if (date) { state.date = date; render() }
+  }
+  if (button.dataset.action === 'retry') void init()
+})
+void init()
+if ('serviceWorker' in navigator) window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js') })
