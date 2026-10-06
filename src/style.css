@@ -35,7 +35,10 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100dvh; }
-body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse 240px 240px at 10% 12%, var(--glow-top), transparent 85%), radial-gradient(ellipse 280px 280px at 90% 83%, var(--glow-bottom), transparent 85%), linear-gradient(135deg, var(--bg-start), var(--bg-mid) 52%, var(--bg-end)); }
+/* Paint the document canvas too, including Safari's extended viewport. */
+:root { background-color: var(--bg-end); background-image: radial-gradient(ellipse 240px 240px at 10% 12%, var(--glow-top), transparent 85%), radial-gradient(ellipse 280px 280px at 90% 83%, var(--glow-bottom), transparent 85%), linear-gradient(135deg, var(--bg-start), var(--bg-mid) 52%, var(--bg-end)); background-attachment: fixed; background-repeat: no-repeat; background-size: 100% 100lvh; }
+body { background: transparent; }
+
 button, input, select { font: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button, input, select { color: var(--text); }

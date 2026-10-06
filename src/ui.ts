@@ -7,6 +7,8 @@ function icon(name: string): string {
   const paths: Record<string, string> = {
     down: '<path d="m6 9 6 6 6-6"/>', left: '<path d="m15 6-6 6 6 6"/>', right: '<path d="m9 6 6 6-6 6"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18m-12 4h.01m3 0h.01m3 0h.01m-6 3h.01m3 0h.01"/>',
+    book: '<path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Z"/><path d="M12 6v14"/>',
+    flask: '<path d="M9 3h6m-5 0v7L4 19a1.3 1.3 0 0 0 1 2h14a1.3 1.3 0 0 0 1-2l-6-9V3M7 15h10"/>',
     home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>',
     settings: '<path d="M18.929 9.130 L19.336 10.441 L21.383 10.514 L21.383 13.486 L19.336 13.559 L18.929 14.870 L18.290 16.085 L19.686 17.584 L17.584 19.686 L16.085 18.290 L14.870 18.929 L13.559 19.336 L13.486 21.383 L10.514 21.383 L10.441 19.336 L9.130 18.929 L7.915 18.290 L6.416 19.686 L4.314 17.584 L5.710 16.085 L5.071 14.870 L4.664 13.559 L2.617 13.486 L2.617 10.514 L4.664 10.441 L5.071 9.130 L5.710 7.915 L4.314 6.416 L6.416 4.314 L7.915 5.710 L9.130 5.071 L10.441 4.664 L10.514 2.617 L13.486 2.617 L13.559 4.664 L14.870 5.071 L16.085 5.710 L17.584 4.314 L19.686 6.416 L18.290 7.915 Z"/><circle cx="12" cy="12" r="3.2"/>',
     pencil: '<path d="m16 3 5 5-12 12-6 1 1-6Z"/><path d="m14 5 5 5"/>',
@@ -41,14 +43,21 @@ export function teacherName(value = ''): string {
 export function cleanKind(value = ''): string {
   return [...new Set(value.split(/[,;]+/).map(part => part.trim()).filter(Boolean))].join(', ')
 }
+function lessonIcon(kind: string): string {
+  if (/лабор|lab/i.test(kind)) return 'flask'
+  if (/практ|семинар|practice|seminar/i.test(kind)) return 'pencil'
+  if (/лекц|lecture/i.test(kind)) return 'book'
+  return 'calendar'
+}
 function card(entry: Entry, index: number, feed = false): string {
   const kind = cleanKind(entry.kind || entry.category || 'Занятие')
+  const symbol = icon(lessonIcon(kind))
   const teacher = teacherName(entry.teacher)
   const time = [entry.startTime, entry.endTime].filter(Boolean).join(' — ') || entry.time || 'Время не указано'
   const place = [entry.isOnline ? 'Онлайн' : entry.room && `Аудитория ${entry.room}`, entry.address].filter(Boolean).join(' · ')
   const details = `${teacher ? `<p>${esc(teacher)}</p>` : ''}${place ? `<p>${esc(place)}</p>` : ''}${entry.subgroup ? `<p>${esc(entry.subgroup)}</p>` : ''}${entry.note && entry.note !== kind ? `<p class="note">${esc(entry.note)}</p>` : ''}`
-  if (feed) return `<article class="feed-card glass"><span class="feed-symbol">${icon('calendar')}</span><div class="card-body"><div class="feed-title"><h3>${esc(entry.subject || 'Событие')}</h3><span class="feed-time">${esc(time)}</span></div><span class="badge">${esc(kind)}</span>${details}</div></article>`
-  return `<article class="timeline-row"><div class="timeline-rail" aria-hidden="true"><span>${index + 1}</span><i></i></div><div class="timeline-body"><div class="lesson-time">${esc(time)}</div><div class="lesson-card glass"><div class="card-body"><h3>${esc(entry.subject || 'Событие')}</h3><div class="lesson-kind">${esc(kind)}</div>${details}</div><span class="card-symbol">${icon('pencil')}</span></div></div></article>`
+  if (feed) return `<article class="feed-card glass"><span class="feed-symbol">${symbol}</span><div class="card-body"><div class="feed-title"><h3>${esc(entry.subject || 'Событие')}</h3><span class="feed-time">${esc(time)}</span></div><span class="badge">${esc(kind)}</span>${details}</div></article>`
+  return `<article class="timeline-row"><div class="timeline-rail" aria-hidden="true"><span>${index + 1}</span><i></i></div><div class="timeline-body"><div class="lesson-time">${esc(time)}</div><div class="lesson-card glass"><div class="card-body"><h3>${esc(entry.subject || 'Событие')}</h3><div class="lesson-kind">${esc(kind)}</div>${details}</div><span class="card-symbol">${symbol}</span></div></div></article>`
 }
 function days(): string {
   const start = monday(state.date)
@@ -113,5 +122,4 @@ export function render(): void {
   const home = `<header class="app-header"><h1><button class="group-heading" data-action="open-groups" aria-label="Сменить группу: ${esc(group)}" aria-haspopup="dialog">${esc(group)}${icon('down')}</button></h1><p class="screen-subtitle">${state.view === 'events' ? 'События дня' : 'Лента событий'}</p><p class="group-caption">РУТ (МИИТ)${selectedGroup() ? ` · ${esc(groupDescription(selectedGroup()!))}` : ''}</p><div class="tabs" aria-label="Вид расписания"><button data-view="events" class="${state.view === 'events' ? 'selected' : ''}" aria-pressed="${state.view === 'events'}">События</button><button data-view="feed" class="${state.view === 'feed' ? 'selected' : ''}" aria-pressed="${state.view === 'feed'}">Лента</button></div></header><section class="content"><div class="date-heading"><h2>${esc(state.view === 'events' ? dateTitle : range)}</h2><button class="icon-button calendar-trigger" data-action="open-calendar" aria-label="Открыть календарь" aria-haspopup="dialog">${icon('calendar')}</button></div>${state.view === 'events' ? `<div class="week" aria-label="Дни недели">${days()}</div>` : ''}<div class="week-navigation">${weekLink(-7)}<button class="today-button" data-action="today">Сегодня</button>${weekLink(7)}</div>${outsidePeriod ? `<div class="outside-period">${dataPeriod()}</div>` : ''}<div class="schedule">${schedule()}</div><details class="source-details"><summary>Срок действия расписания</summary>${dataPeriod() || '<p>Выберите группу, чтобы увидеть расписание.</p>'}</details></section>`
   app.innerHTML = `<main class="shell">${state.screen === 'home' ? home : settings()}<nav class="dock" aria-label="Навигация"><button data-screen="home" class="${state.screen === 'home' ? 'selected' : ''}" aria-current="${state.screen === 'home' ? 'page' : 'false'}">${icon('home')}<span>Главная</span></button><button data-screen="settings" class="${state.screen === 'settings' ? 'selected' : ''}" aria-current="${state.screen === 'settings' ? 'page' : 'false'}">${icon('settings')}<span>Настройки</span></button></nav></main>${state.overlay ? `<dialog class="sheet" aria-labelledby="sheet-title"><div class="sheet-handle" aria-hidden="true"></div><header class="sheet-header"><h2 id="sheet-title">${state.overlay === 'groups' ? 'Учебная группа' : 'Календарь'}</h2><button class="close-button" data-action="close-sheet" aria-label="Закрыть">${icon('close')}</button></header>${state.overlay === 'groups' ? `<p class="sheet-subtitle">РУТ (МИИТ)</p>${groupPicker()}` : calendarSheet()}</dialog>` : ''}`
   if (state.overlay) document.querySelector<HTMLDialogElement>('dialog')!.showModal()
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--theme-color').trim())
 }
