@@ -3,6 +3,19 @@ import type { Entry } from './types'
 import { groupDescription, groupPicker } from './group-picker'
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
+function icon(name: string): string {
+  const paths: Record<string, string> = {
+    down: '<path d="m6 9 6 6 6-6"/>', left: '<path d="m15 6-6 6 6 6"/>', right: '<path d="m9 6 6 6-6 6"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18m-12 4h.01m3 0h.01m3 0h.01m-6 3h.01m3 0h.01"/>',
+    home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>',
+    settings: '<path d="m9 3-1 3-3 1-2 3 2 2v3l3 2 1 4h6l1-4 3-2v-3l2-2-2-3-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/>',
+    pencil: '<path d="m16 3 5 5-12 12-6 1 1-6Z"/><path d="m14 5 5 5"/>',
+    close: '<path d="m6 6 12 12M6 18 18 6"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"/>',
+    moon: '<path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z"/>',
+    system: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/>',
+  }
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.calendar}</svg>`
+}
 const weekday = new Intl.DateTimeFormat('ru', { weekday: 'short' })
 const month = { format: (date: Date) => new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' }).format(date).replace(/^\d+\s+/, '') }
 
@@ -28,11 +41,14 @@ export function teacherName(value = ''): string {
 export function cleanKind(value = ''): string {
   return [...new Set(value.split(/[,;]+/).map(part => part.trim()).filter(Boolean))].join(', ')
 }
-function card(entry: Entry): string {
+function card(entry: Entry, index: number, feed = false): string {
   const kind = cleanKind(entry.kind || entry.category || 'Занятие')
   const teacher = teacherName(entry.teacher)
-  const place = [entry.isOnline ? 'Онлайн' : entry.room && `Ауд. ${entry.room}`, entry.address].filter(Boolean).join(' · ')
-  return `<article class="card"><div class="card-time">${esc(entry.startTime || entry.time?.split('—')[0]?.trim() || '—')}<span>${esc(entry.endTime || entry.time?.split('—')[1]?.trim() || '')}</span></div><div class="card-body"><span class="badge">${esc(kind)}</span><h3>${esc(entry.subject || 'Событие')}</h3>${teacher ? `<p>${esc(teacher)}</p>` : ''}${place ? `<p>${esc(place)}</p>` : ''}${entry.subgroup ? `<p>${esc(entry.subgroup)}</p>` : ''}${entry.note && entry.note !== kind ? `<p class="note">${esc(entry.note)}</p>` : ''}</div></article>`
+  const time = [entry.startTime, entry.endTime].filter(Boolean).join(' — ') || entry.time || 'Время не указано'
+  const place = [entry.isOnline ? 'Онлайн' : entry.room && `Аудитория ${entry.room}`, entry.address].filter(Boolean).join(' · ')
+  const details = `${teacher ? `<p>${esc(teacher)}</p>` : ''}${place ? `<p>${esc(place)}</p>` : ''}${entry.subgroup ? `<p>${esc(entry.subgroup)}</p>` : ''}${entry.note && entry.note !== kind ? `<p class="note">${esc(entry.note)}</p>` : ''}`
+  if (feed) return `<article class="feed-card glass"><span class="feed-symbol">${icon('calendar')}</span><div class="card-body"><div class="feed-title"><h3>${esc(entry.subject || 'Событие')}</h3><span class="feed-time">${esc(time)}</span></div><span class="badge">${esc(kind)}</span>${details}</div></article>`
+  return `<article class="timeline-row"><div class="timeline-rail" aria-hidden="true"><span>${index + 1}</span><i></i></div><div class="timeline-body"><div class="lesson-time">${esc(time)}</div><div class="lesson-card glass"><div class="card-body"><h3>${esc(entry.subject || 'Событие')}</h3><div class="lesson-kind">${esc(kind)}</div>${details}</div><span class="card-symbol">${icon('pencil')}</span></div></div></article>`
 }
 function days(): string {
   const start = monday(state.date)
@@ -40,7 +56,7 @@ function days(): string {
     const date = shift(start, index)
     const active = dayKey(date) === dayKey(state.date)
     const count = state.timetable ? entriesFor(date, state.timetable).length : 0
-    return `<button class="day ${active ? 'active' : ''}" data-date="${dayKey(date)}" aria-pressed="${active}"><span>${esc(weekday.format(date).replace('.', ''))}</span><strong>${date.getDate()}</strong><i class="${count ? 'has-items' : ''}"></i></button>`
+    return `<button class="day ${active ? 'active' : ''}" data-date="${dayKey(date)}" aria-pressed="${active}"><strong>${date.getDate()}</strong><span>${esc(weekday.format(date).replace('.', ''))}</span><i class="${count ? 'has-items' : ''}"></i></button>`
   }).join('')
 }
 function schedule(): string {
@@ -51,25 +67,43 @@ function schedule(): string {
     const start = monday(state.date)
     return Array.from({ length: 7 }, (_, i) => shift(start, i)).map(date => {
       const items = entriesFor(date, state.timetable!)
-      return `<section class="feed-day"><h2>${esc(new Intl.DateTimeFormat('ru', { weekday: 'long', day: 'numeric', month: 'long' }).format(date))}</h2>${items.length ? items.map(card).join('') : '<p class="empty-small">Нет занятий</p>'}</section>`
+      return `<section class="feed-day"><h2>${esc(new Intl.DateTimeFormat('ru', { weekday: 'long', day: 'numeric', month: 'long' }).format(date))}</h2>${items.length ? items.map((entry, index) => card(entry, index, true)).join('') : '<p class="empty-small">Нет занятий</p>'}</section>`
     }).join('')
   }
   const entries = entriesFor(state.date, state.timetable)
-  return entries.length ? entries.map(card).join('') : '<div class="message"><div class="empty-icon">✦</div><strong>На этот день событий нет</strong><span>Выберите другой день или неделю</span></div>'
+  return entries.length ? entries.map((entry, index) => card(entry, index)).join('') : '<div class="message"><div class="empty-icon">✦</div><strong>На этот день событий нет</strong><span>Выберите другой день или неделю</span></div>'
+}
+
+function calendarSheet(): string {
+  const month = state.calendarMonth
+  const start = monday(new Date(month.getFullYear(), month.getMonth(), 1))
+  const last = new Date(month.getFullYear(), month.getMonth() + 1, 0)
+  const cellCount = Math.ceil(((new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7 + last.getDate()) / 7) * 7
+  return `<div class="calendar-heading"><button class="icon-button" data-action="calendar-prev" aria-label="Предыдущий месяц">${icon('left')}</button><h3>${esc(new Intl.DateTimeFormat('ru', { month: 'long', year: 'numeric' }).format(month))}</h3><button class="icon-button" data-action="calendar-next" aria-label="Следующий месяц">${icon('right')}</button></div><div class="month-grid">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(day => `<span class="month-weekday">${day}</span>`).join('')}${Array.from({ length: cellCount }, (_, i) => {
+    const date = shift(start, i)
+    const key = dayKey(date)
+    const hasEvents = !!state.timetable && entriesFor(date, state.timetable).length > 0
+    return `<button class="month-day ${date.getMonth() !== month.getMonth() ? 'outside' : ''} ${key === dayKey(state.date) ? 'active' : ''}" data-date="${key}" aria-label="${esc(new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' }).format(date))}" aria-pressed="${key === dayKey(state.date)}">${date.getDate()}<i class="${hasEvents ? 'has-items' : ''}"></i></button>`
+  }).join('')}</div><button class="primary-button calendar-today" data-action="calendar-today">Сегодня</button>`
+}
+function settings(): string {
+  const group = selectedGroup()
+  return `<section class="settings-page"><h1>Настройки</h1><p class="screen-subtitle">Учебная группа и внешний вид</p><h2 class="settings-label">Учебная группа</h2><button class="settings-group glass" data-action="open-groups"><span><strong>${esc(group?.name || 'Выберите группу')}</strong><small>${group ? esc(groupDescription(group)) : 'Найдите свою учебную группу'}</small></span>${icon('right')}</button><h2 class="settings-label">Оформление</h2><div class="theme-options glass">${([['system','Как на устройстве','system'],['light','Светлая','sun'],['dark','Тёмная','moon']] as const).map(([value,label,symbol]) => `<button data-theme-choice="${value}" class="${state.theme === value ? 'selected' : ''}" aria-pressed="${state.theme === value}">${icon(symbol)}<span>${label}</span></button>`).join('')}</div><p class="settings-note">Timetable Hub<br>Расписание РУТ (МИИТ)</p></section>`
 }
 
 export function render(): void {
+  document.documentElement.dataset.theme = state.theme
   const app = document.querySelector<HTMLDivElement>('#app')!
   const start = monday(state.date)
   const end = shift(start, 6)
   const range = start.getMonth() === end.getMonth() ? `${start.getDate()}–${end.getDate()} ${month.format(end)}` : `${start.getDate()} ${month.format(start)} – ${end.getDate()} ${month.format(end)}`
   const group = selectedGroup()?.name || state.timetable?.group || 'Выберите группу'
-  app.innerHTML = `<main class="shell">
-    <header class="topbar"><div class="brand-mark">✦</div><span>МОЁ РАСПИСАНИЕ</span><button class="icon-button" data-action="today" title="Сегодня" aria-label="Сегодня">◎</button></header>
-    <section class="hero"><p class="eyebrow">ВАША ГРУППА</p><h1>${esc(group)}</h1><p>РУТ (МИИТ)${selectedGroup() ? ` · ${esc(groupDescription(selectedGroup()!))}` : ''}</p></section>
-    ${groupPicker()}
-    <section class="content"><div class="section-head"><div><p class="eyebrow">РАСПИСАНИЕ</p><h2>${esc(range)}</h2><span class="year">${start.getFullYear()}${state.timetable ? ` · ${weekParity(state.date, state.timetable) === 'odd' ? 'Нечётная' : 'Чётная'} неделя` : ''}</span></div><div class="arrows"><button data-action="prev" aria-label="Предыдущая неделя">‹</button><button data-action="next" aria-label="Следующая неделя">›</button></div></div>
-    ${dataPeriod()}<div class="week" aria-label="Дни недели">${days()}</div><div class="tabs"><button data-view="events" class="${state.view === 'events' ? 'selected' : ''}">События</button><button data-view="feed" class="${state.view === 'feed' ? 'selected' : ''}">Лента</button></div><div class="schedule">${schedule()}</div></section>
-    <nav class="dock" aria-label="Навигация"><button data-action="today"><span>⌂</span>Сегодня</button><button data-action="prev"><span>‹</span>Неделя</button><button data-action="next"><span>›</span>Далее</button></nav>
-  </main>`
+  const dateTitle = `${new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' }).format(state.date)}, ${new Intl.DateTimeFormat('ru', { weekday: 'long' }).format(state.date)}`
+  const parity = state.timetable ? (weekParity(state.date, state.timetable) === 'odd' ? 'Нечётная' : 'Чётная') + ' неделя' : ''
+  const semester = state.timetable?.semester
+  const outsidePeriod = !!semester && (dayKey(state.date) < semester.startDate || dayKey(state.date) > semester.endDate)
+  const home = `<header class="app-header"><h1><button class="group-heading" data-action="open-groups" aria-label="Сменить группу: ${esc(group)}" aria-haspopup="dialog">${esc(group)}${icon('down')}</button></h1><p class="screen-subtitle">${state.view === 'events' ? 'События дня' : 'Лента событий'}</p><p class="group-caption">РУТ (МИИТ)${selectedGroup() ? ` · ${esc(groupDescription(selectedGroup()!))}` : ''}</p><div class="tabs" aria-label="Вид расписания"><button data-view="events" class="${state.view === 'events' ? 'selected' : ''}" aria-pressed="${state.view === 'events'}">События</button><button data-view="feed" class="${state.view === 'feed' ? 'selected' : ''}" aria-pressed="${state.view === 'feed'}">Лента</button></div></header><section class="content"><div class="date-heading"><h2>${esc(state.view === 'events' ? dateTitle : range)}</h2><button class="icon-button calendar-trigger" data-action="open-calendar" aria-label="Открыть календарь" aria-haspopup="dialog">${icon('calendar')}</button></div>${state.view === 'events' ? `<div class="week" aria-label="Дни недели">${days()}</div>` : ''}<div class="week-navigation"><button class="icon-button" data-action="prev" aria-label="Предыдущая неделя">${icon('left')}</button><span>${esc(range)}${parity ? `<small>${esc(parity)}</small>` : ''}</span><button class="today-button" data-action="today">Сегодня</button><button class="icon-button" data-action="next" aria-label="Следующая неделя">${icon('right')}</button></div>${outsidePeriod ? `<div class="outside-period">${dataPeriod()}</div>` : ''}<div class="schedule">${schedule()}</div><details class="source-details"><summary>Срок действия расписания</summary>${dataPeriod() || '<p>Выберите группу, чтобы увидеть расписание.</p>'}</details></section>`
+  app.innerHTML = `<main class="shell">${state.screen === 'home' ? home : settings()}<nav class="dock" aria-label="Навигация"><button data-screen="home" class="${state.screen === 'home' ? 'selected' : ''}" aria-current="${state.screen === 'home' ? 'page' : 'false'}">${icon('home')}<span>Главная</span></button><button data-screen="settings" class="${state.screen === 'settings' ? 'selected' : ''}" aria-current="${state.screen === 'settings' ? 'page' : 'false'}">${icon('settings')}<span>Настройки</span></button></nav></main>${state.overlay ? `<dialog class="sheet" aria-labelledby="sheet-title"><div class="sheet-handle" aria-hidden="true"></div><header class="sheet-header"><h2 id="sheet-title">${state.overlay === 'groups' ? 'Учебная группа' : 'Календарь'}</h2><button class="close-button" data-action="close-sheet" aria-label="Закрыть">${icon('close')}</button></header>${state.overlay === 'groups' ? `<p class="sheet-subtitle">РУТ (МИИТ)</p>${groupPicker()}` : calendarSheet()}</dialog>` : ''}`
+  if (state.overlay) document.querySelector<HTMLDialogElement>('dialog')!.showModal()
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--theme-color').trim())
 }

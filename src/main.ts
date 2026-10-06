@@ -5,6 +5,11 @@ import { render } from './ui'
 import type { View } from './types'
 import { alignGroupFilters, searchResults } from './group-picker'
 
+function closeSheet() {
+  const action = state.overlay === 'calendar' ? 'open-calendar' : 'open-groups'
+  state.overlay = null; render()
+  document.querySelector<HTMLButtonElement>(`[data-action="${action}"]`)?.focus()
+}
 let request = 0
 async function loadTimetable() {
   const current = ++request
@@ -45,7 +50,7 @@ document.addEventListener('change', event => {
   const target = event.target as HTMLSelectElement
   if (target.id === 'institute') { state.instituteFilter = target.value; state.courseFilter = ''; render() }
   if (target.id === 'course') { state.courseFilter = target.value; render() }
-  if (target.id === 'group') { state.groupId = target.value; alignGroupFilters(); saveSelection(); void loadTimetable() }
+  if (target.id === 'group' && target.value) { state.screen = 'home'; state.overlay = null; state.groupId = target.value; alignGroupFilters(); saveSelection(); void loadTimetable() }
 })
 document.addEventListener('input', event => {
   const input = event.target as HTMLInputElement
@@ -56,8 +61,8 @@ document.addEventListener('input', event => {
 document.addEventListener('click', event => {
   const button = (event.target as Element).closest<HTMLButtonElement>('button')
   if (!button) return
-  if (button.dataset.group) { state.groupId = button.dataset.group; state.search = ''; alignGroupFilters(); saveSelection(); void loadTimetable() }
-  if (button.dataset.date) { state.date = fromKey(button.dataset.date); render() }
+  if (button.dataset.group) { state.overlay = null; state.screen = 'home'; state.groupId = button.dataset.group; state.search = ''; alignGroupFilters(); saveSelection(); void loadTimetable() }
+  if (button.dataset.date) { state.date = fromKey(button.dataset.date); state.overlay = null; render() }
   if (button.dataset.view) { state.view = button.dataset.view as View; render() }
   if (button.dataset.action === 'prev') { state.date = shift(state.date, -7); render() }
   if (button.dataset.action === 'next') { state.date = shift(state.date, 7); render() }
@@ -66,7 +71,19 @@ document.addEventListener('click', event => {
     const date = availableDate(state.timetable)
     if (date) { state.date = date; render() }
   }
+  if (button.dataset.action === 'open-groups') { state.overlay = 'groups'; state.search = ''; render() }
+  if (button.dataset.action === 'close-sheet') closeSheet()
+  if (button.dataset.action === 'open-calendar') { state.overlay = 'calendar'; state.calendarMonth = new Date(state.date.getFullYear(), state.date.getMonth(), 1); render() }
+  if (button.dataset.action === 'calendar-prev') { state.calendarMonth = new Date(state.calendarMonth.getFullYear(), state.calendarMonth.getMonth() - 1, 1); render() }
+  if (button.dataset.action === 'calendar-next') { state.calendarMonth = new Date(state.calendarMonth.getFullYear(), state.calendarMonth.getMonth() + 1, 1); render() }
+  if (button.dataset.action === 'calendar-today') { state.date = new Date(); state.overlay = null; render() }
+  if (button.dataset.screen === 'home' || button.dataset.screen === 'settings') { state.screen = button.dataset.screen; render() }
+  const theme = button.dataset.themeChoice
+  if (theme === 'system' || theme === 'light' || theme === 'dark') { state.theme = theme; localStorage.setItem('timetable-theme', theme); render() }
   if (button.dataset.action === 'retry') void init()
 })
+document.addEventListener('cancel', event => {
+  if (event.target instanceof HTMLDialogElement) { event.preventDefault(); closeSheet() }
+}, true)
 void init()
 if ('serviceWorker' in navigator) window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js') })

@@ -2,16 +2,22 @@ import type { Entry, Group, Institute, Timetable, University, View } from './typ
 
 const KEY = 'timetable-selection-v1'
 const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') as { universityId?: string; groupId?: string } } catch { return {} } })()
+function savedTheme(): 'system' | 'light' | 'dark' {
+  try { const value = localStorage.getItem('timetable-theme'); return value === 'light' || value === 'dark' ? value : 'system' } catch { return 'system' }
+}
 export const state: {
   universities: University[]; groups: Group[]; timetable: Timetable | null;
   universityId: string; groupId: string; date: Date; view: View;
   loading: boolean; error: string;
+  screen: 'home' | 'settings'; overlay: 'groups' | 'calendar' | null; calendarMonth: Date;
+  theme: 'system' | 'light' | 'dark';
   institutes: Institute[]; instituteFilter: string; courseFilter: string; search: string;
 } = {
   universities: [], groups: [], timetable: null,
   universityId: 'moscow-rut-miit', groupId: saved.groupId || '',
   date: new Date(), view: 'events', loading: false, error: '',
   institutes: [], instituteFilter: '', courseFilter: '', search: '',
+  screen: 'home', overlay: null, calendarMonth: new Date(), theme: savedTheme(),
 }
 
 export function saveSelection() {
