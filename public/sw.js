@@ -1,6 +1,6 @@
-const CACHE = 'timetable-web-v1'
+const CACHE = 'timetable-web-v2'
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(['/', '/manifest.webmanifest', '/favicon.svg'])))
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(['/', '/manifest.webmanifest', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png'])))
   self.skipWaiting()
 })
 self.addEventListener('activate', event => {

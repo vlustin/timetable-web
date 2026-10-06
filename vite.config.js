@@ -11,7 +11,7 @@ export default defineConfig({
     configureServer(server) {
       server.middlewares.use('/__local-data', async (request, response, next) => {
         const relative = (request.url || '').split('?')[0].replace(/^\//, '')
-        if (!/^moscow-rut-miit\/timetables\/[\w-]+\.json$/.test(relative)) { next(); return }
+        if (!/^moscow-rut-miit\/(?:groups\.json|timetables\/[\w-]+\.json)$/.test(relative)) { next(); return }
         try {
           const content = await readFile(path.join(dataRoot, relative), 'utf8')
           response.setHeader('Content-Type', 'application/json; charset=utf-8')

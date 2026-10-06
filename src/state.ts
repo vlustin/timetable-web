@@ -1,4 +1,4 @@
-import type { Entry, Group, Timetable, University, View } from './types'
+import type { Entry, Group, Institute, Timetable, University, View } from './types'
 
 const KEY = 'timetable-selection-v1'
 const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') as { universityId?: string; groupId?: string } } catch { return {} } })()
@@ -6,10 +6,12 @@ export const state: {
   universities: University[]; groups: Group[]; timetable: Timetable | null;
   universityId: string; groupId: string; date: Date; view: View;
   loading: boolean; error: string;
+  institutes: Institute[]; instituteFilter: string; courseFilter: string; search: string;
 } = {
   universities: [], groups: [], timetable: null,
-  universityId: saved.universityId || '', groupId: saved.groupId || '',
+  universityId: 'moscow-rut-miit', groupId: saved.groupId || '',
   date: new Date(), view: 'events', loading: false, error: '',
+  institutes: [], instituteFilter: '', courseFilter: '', search: '',
 }
 
 export function saveSelection() {

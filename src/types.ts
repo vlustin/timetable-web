@@ -1,5 +1,7 @@
 export interface University { id: string; name: string }
-export interface Group { id: string; name: string; institute?: string }
+export interface Institute { id: string; name: string; shortName: string }
+export interface Group { id: string; name: string; institute?: string; instituteId: string; course: number }
+export interface GroupCatalog { schemaVersion: number; institutes: Institute[]; groups: Group[] }
 export interface Entry {
   id?: string; date?: string; weekdayNumber?: number; dayOfWeek?: number;
   startTime?: string; endTime?: string; time?: string; kind?: string;

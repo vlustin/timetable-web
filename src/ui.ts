@@ -1,5 +1,6 @@
 import { availableDate, dayKey, entriesFor, fromKey, monday, selectedGroup, shift, state, weekParity } from './state'
 import type { Entry } from './types'
+import { groupDescription, groupPicker } from './group-picker'
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
 const weekday = new Intl.DateTimeFormat('ru', { weekday: 'short' })
@@ -45,7 +46,7 @@ function days(): string {
 function schedule(): string {
   if (state.loading) return '<div class="message">Загружаем расписание…</div>'
   if (state.error) return `<div class="message error">${esc(state.error)}<button data-action="retry">Повторить</button></div>`
-  if (!state.timetable) return '<div class="message">Выберите вуз и группу, чтобы увидеть расписание.</div>'
+  if (!state.timetable) return '<div class="message">Найдите или выберите группу, чтобы увидеть расписание.</div>'
   if (state.view === 'feed') {
     const start = monday(state.date)
     return Array.from({ length: 7 }, (_, i) => shift(start, i)).map(date => {
@@ -65,8 +66,8 @@ export function render(): void {
   const group = selectedGroup()?.name || state.timetable?.group || 'Выберите группу'
   app.innerHTML = `<main class="shell">
     <header class="topbar"><div class="brand-mark">✦</div><span>МОЁ РАСПИСАНИЕ</span><button class="icon-button" data-action="today" title="Сегодня" aria-label="Сегодня">◎</button></header>
-    <section class="hero"><p class="eyebrow">ВАША ГРУППА</p><h1>${esc(group)}</h1><p>${esc(state.universities.find(item => item.id === state.universityId)?.name || 'Расписание университета')}</p></section>
-    <section class="selectors"><label>Университет<select id="university"><option value="">Выберите вуз</option>${state.universities.map(item => `<option value="${esc(item.id)}" ${item.id === state.universityId ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label><label>Группа<select id="group" ${!state.universityId ? 'disabled' : ''}><option value="">Выберите группу</option>${state.groups.map(item => `<option value="${esc(item.id)}" ${item.id === state.groupId ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label></section>
+    <section class="hero"><p class="eyebrow">ВАША ГРУППА</p><h1>${esc(group)}</h1><p>РУТ (МИИТ)${selectedGroup() ? ` · ${esc(groupDescription(selectedGroup()!))}` : ''}</p></section>
+    ${groupPicker()}
     <section class="content"><div class="section-head"><div><p class="eyebrow">РАСПИСАНИЕ</p><h2>${esc(range)}</h2><span class="year">${start.getFullYear()}${state.timetable ? ` · ${weekParity(state.date, state.timetable) === 'odd' ? 'Нечётная' : 'Чётная'} неделя` : ''}</span></div><div class="arrows"><button data-action="prev" aria-label="Предыдущая неделя">‹</button><button data-action="next" aria-label="Следующая неделя">›</button></div></div>
     ${dataPeriod()}<div class="week" aria-label="Дни недели">${days()}</div><div class="tabs"><button data-view="events" class="${state.view === 'events' ? 'selected' : ''}">События</button><button data-view="feed" class="${state.view === 'feed' ? 'selected' : ''}">Лента</button></div><div class="schedule">${schedule()}</div></section>
     <nav class="dock" aria-label="Навигация"><button data-action="today"><span>⌂</span>Сегодня</button><button data-action="prev"><span>‹</span>Неделя</button><button data-action="next"><span>›</span>Далее</button></nav>
