@@ -117,17 +117,16 @@ export function render(): void {
   const sameOverlay = !!previousDialog && previousDialog.dataset.overlay === state.overlay
   const focusedTheme = sameOverlay && document.activeElement instanceof HTMLElement ? document.activeElement.dataset.themeChoice : undefined
   document.documentElement.dataset.theme = state.theme
-  const dark = state.theme === 'dark' || (state.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   let browserTheme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
   if (!browserTheme) {
     browserTheme = document.createElement('meta')
     browserTheme.name = 'theme-color'
     document.head.append(browserTheme)
   }
-  browserTheme.content = dark ? '#000000' : '#ffffff' 
+  browserTheme.content = getComputedStyle(document.documentElement).getPropertyValue('--bg-start').trim()
   const app = document.querySelector<HTMLDivElement>('#app')!
   const range = weekRange(state.date)
-  const group = selectedGroup()?.name || state.timetable?.group || 'Выберите группу'
+  const group = selectedGroup()?.name || state.timetable?.group || (state.loading && state.groupId ? 'Загрузка группы…' : 'Выберите группу')
   const dateTitle = `${new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' }).format(state.date)}, ${new Intl.DateTimeFormat('ru', { weekday: 'long' }).format(state.date)}`
   const semester = state.timetable?.semester
   const outsidePeriod = !!semester && (dayKey(state.date) < semester.startDate || dayKey(state.date) > semester.endDate)

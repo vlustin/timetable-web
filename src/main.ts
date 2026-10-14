@@ -79,7 +79,7 @@ document.addEventListener('click', event => {
   if (button.dataset.action === 'calendar-today') { state.date = new Date(); state.overlay = null; render() }
   if (button.dataset.action === 'open-theme') { state.overlay = 'theme'; render() }
   const theme = button.dataset.themeChoice
-  if (theme === 'system' || theme === 'light' || theme === 'dark') { state.theme = theme; localStorage.setItem('timetable-theme', theme); render() }
+  if (theme === 'system' || theme === 'light' || theme === 'dark') { state.theme = theme; localStorage.setItem('timetable-theme', theme); closeSheet() }
   if (button.dataset.action === 'retry') void init()
 })
 document.addEventListener('cancel', event => {

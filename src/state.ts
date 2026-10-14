@@ -1,27 +1,34 @@
 import type { Entry, Group, Institute, Timetable, University, View } from './types'
 
 const KEY = 'timetable-selection-v1'
-const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') as { universityId?: string; groupId?: string } } catch { return {} } })()
+const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') as { universityId?: string; groupId?: string; group?: Group; institute?: Institute } } catch { return {} } })()
+const cachedGroup = saved.group
+const validCachedGroup = cachedGroup && cachedGroup.id === saved.groupId && typeof cachedGroup.name === 'string' && typeof cachedGroup.instituteId === 'string' && typeof cachedGroup.course === 'number' ? cachedGroup : undefined
+const cachedInstitute = saved.institute
 function savedTheme(): 'system' | 'light' | 'dark' {
   try { const value = localStorage.getItem('timetable-theme'); return value === 'light' || value === 'dark' ? value : 'system' } catch { return 'system' }
 }
 export const state: {
   universities: University[]; groups: Group[]; timetable: Timetable | null;
+  cachedGroup?: Group;
   universityId: string; groupId: string; date: Date; view: View;
   loading: boolean; error: string;
   overlay: 'groups' | 'calendar' | 'theme' | null; calendarMonth: Date;
   theme: 'system' | 'light' | 'dark';
   institutes: Institute[]; instituteFilter: string; courseFilter: string; search: string;
 } = {
-  universities: [], groups: [], timetable: null,
+  universities: [], groups: [], timetable: null, cachedGroup: validCachedGroup,
   universityId: 'moscow-rut-miit', groupId: saved.groupId || '',
   date: new Date(), view: 'events', loading: false, error: '',
-  institutes: [], instituteFilter: '', courseFilter: '', search: '',
+  institutes: cachedInstitute && typeof cachedInstitute.id === 'string' && typeof cachedInstitute.shortName === 'string' && typeof cachedInstitute.name === 'string' ? [cachedInstitute] : [], instituteFilter: '', courseFilter: '', search: '',
   overlay: null, calendarMonth: new Date(), theme: savedTheme(),
 }
 
 export function saveSelection() {
-  localStorage.setItem(KEY, JSON.stringify({ universityId: state.universityId, groupId: state.groupId }))
+  const group = state.groups.find(item => item.id === state.groupId)
+  state.cachedGroup = group
+  const institute = state.institutes.find(item => item.id === group?.instituteId)
+  try { localStorage.setItem(KEY, JSON.stringify({ universityId: state.universityId, groupId: state.groupId, group, institute })) } catch { /* Selection remains usable when storage is unavailable. */ }
 }
 
 export function dayKey(date: Date): string {
@@ -79,7 +86,7 @@ export function entriesFor(date: Date, timetable: Timetable): Entry[] {
   return combineSubgroups([...regular, ...exceptions, ...events]).sort((a, b) => (a.startTime || a.time || '').localeCompare(b.startTime || b.time || '', 'ru'))
 }
 
-export function selectedGroup(): Group | undefined { return state.groups.find(group => group.id === state.groupId) }
+export function selectedGroup(): Group | undefined { return state.groups.find(group => group.id === state.groupId) || (state.cachedGroup?.id === state.groupId ? state.cachedGroup : undefined) }
 
 export function availableDate(timetable: Timetable): Date | null {
   const dates = [...(timetable.events || []), ...(timetable.exceptions || [])]

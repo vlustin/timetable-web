@@ -39,7 +39,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100dvh; }
 /* Keep the gradient tied to the viewport when tabs change page height. */
-:root { background: var(--browser-bg); }
+:root { background: var(--bg-start); }
 body { isolation: isolate; }
 body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background-color: var(--bg-end); background-image: radial-gradient(ellipse 240px 240px at 10% 12%, var(--glow-top), transparent 85%), radial-gradient(ellipse 280px 280px at 90% 83%, var(--glow-bottom), transparent 85%), linear-gradient(135deg, var(--bg-start), var(--bg-mid) 52%, var(--bg-end)); background-repeat: no-repeat; background-size: 100% 100%; }
 body { background: transparent; }
