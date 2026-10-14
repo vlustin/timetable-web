@@ -1,4 +1,5 @@
 import './style.css'
+import { cacheTimetable, readCachedTimetable } from './timetable-cache'
 import { getGroups, getTimetable } from './api'
 import { availableDate, fromKey, openAvailableDate, saveSelection, shift, state } from './state'
 import { render } from './ui'
@@ -14,26 +15,26 @@ let request = 0
 async function loadTimetable() {
   const current = ++request
   state.error = ''
-  state.timetable = null
+  state.timetable = readCachedTimetable(state.universityId, state.groupId)
   if (!state.universityId || !state.groupId) { state.loading = false; render(); return }
   state.loading = true; render()
   try {
     const result = await getTimetable(state.universityId, state.groupId)
-    if (current === request) { state.timetable = result; openAvailableDate(result) }
+    if (current === request) { state.timetable = result; cacheTimetable(result); openAvailableDate(result) }
   }
   catch (error) { if (current === request) state.error = error instanceof Error ? error.message : 'Не удалось загрузить расписание' }
   finally { if (current === request) { state.loading = false; render() } }
 }
 async function loadGroups() {
   const current = ++request
-  state.groups = []; state.timetable = null; state.error = ''; state.loading = !!state.universityId; render()
+  state.groups = []; state.timetable = readCachedTimetable(state.universityId, state.groupId); state.error = ''; state.loading = !!state.universityId; render()
   if (!state.universityId) { state.loading = false; render(); return }
   try {
     const catalog = await getGroups(state.universityId)
     if (current !== request) return
     state.groups = catalog.groups
     state.institutes = catalog.institutes
-    if (!state.groups.some(group => group.id === state.groupId)) state.groupId = ''
+    if (!state.groups.some(group => group.id === state.groupId)) { state.groupId = ''; state.timetable = null }
     alignGroupFilters()
     saveSelection()
     await loadTimetable()

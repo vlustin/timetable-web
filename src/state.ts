@@ -1,5 +1,7 @@
 import type { Entry, Group, Institute, Timetable, University, View } from './types'
 
+import { readCachedTimetable } from './timetable-cache'
+
 const KEY = 'timetable-selection-v1'
 const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') as { universityId?: string; groupId?: string; group?: Group; institute?: Institute } } catch { return {} } })()
 const cachedGroup = saved.group
@@ -17,7 +19,7 @@ export const state: {
   theme: 'system' | 'light' | 'dark';
   institutes: Institute[]; instituteFilter: string; courseFilter: string; search: string;
 } = {
-  universities: [], groups: [], timetable: null, cachedGroup: validCachedGroup,
+  universities: [], groups: [], timetable: readCachedTimetable('moscow-rut-miit', saved.groupId || ''), cachedGroup: validCachedGroup,
   universityId: 'moscow-rut-miit', groupId: saved.groupId || '',
   date: new Date(), view: 'events', loading: false, error: '',
   institutes: cachedInstitute && typeof cachedInstitute.id === 'string' && typeof cachedInstitute.shortName === 'string' && typeof cachedInstitute.name === 'string' ? [cachedInstitute] : [], instituteFilter: '', courseFilter: '', search: '',
