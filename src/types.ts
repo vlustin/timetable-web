@@ -7,6 +7,7 @@ export interface Entry {
   startTime?: string; endTime?: string; time?: string; kind?: string;
   category?: string; subject?: string; teacher?: string; room?: string;
   address?: string; subgroup?: string; note?: string; isOnline?: boolean;
+  variants?: Entry[];
 }
 export interface Timetable {
   universityId: string; groupId: string; group: string;

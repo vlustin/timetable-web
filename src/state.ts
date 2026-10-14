@@ -9,7 +9,7 @@ export const state: {
   universities: University[]; groups: Group[]; timetable: Timetable | null;
   universityId: string; groupId: string; date: Date; view: View;
   loading: boolean; error: string;
-  screen: 'home' | 'settings'; overlay: 'groups' | 'calendar' | null; calendarMonth: Date;
+  overlay: 'groups' | 'calendar' | 'theme' | null; calendarMonth: Date;
   theme: 'system' | 'light' | 'dark';
   institutes: Institute[]; instituteFilter: string; courseFilter: string; search: string;
 } = {
@@ -17,7 +17,7 @@ export const state: {
   universityId: 'moscow-rut-miit', groupId: saved.groupId || '',
   date: new Date(), view: 'events', loading: false, error: '',
   institutes: [], instituteFilter: '', courseFilter: '', search: '',
-  screen: 'home', overlay: null, calendarMonth: new Date(), theme: savedTheme(),
+  overlay: null, calendarMonth: new Date(), theme: savedTheme(),
 }
 
 export function saveSelection() {
@@ -44,6 +44,30 @@ export function weekParity(date: Date, timetable: Timetable): 'odd' | 'even' {
   return weeks % 2 === 0 ? semester.firstWeekParity : semester.firstWeekParity === 'odd' ? 'even' : 'odd'
 }
 
+// Combine only subgroup variants of the same lesson; retain their metadata separately.
+export function combineSubgroups(entries: Entry[]): Entry[] {
+  const result: Entry[] = []
+  const buckets = new Map<string, Entry>()
+  const normalized = (value = '') => value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('ru')
+  for (const entry of entries) {
+    const kind = [...new Set(normalized(entry.kind || entry.category).split(/[,;]+/).map(part => part.trim()).filter(Boolean))].sort().join(',')
+    const eligible = !!entry.subgroup && !!entry.subject && !!(entry.startTime || entry.time)
+      && !['cancelled', 'replacement', 'exam', 'credit', 'consultation'].includes(entry.category || '')
+    if (!eligible) { result.push(entry); continue }
+    const key = JSON.stringify([entry.date || '', entry.weekdayNumber ?? entry.dayOfWeek,
+      entry.startTime || entry.time, entry.endTime || '', normalized(entry.subject), kind, entry.category || ''])
+    const existing = buckets.get(key)
+    if (!existing) {
+      const copy = { ...entry, variants: [{ ...entry }] }
+      buckets.set(key, copy); result.push(copy)
+    } else {
+      const signature = (item: Entry) => JSON.stringify([item.subgroup, item.teacher, item.room, item.address, item.note, !!item.isOnline])
+      if (!existing.variants!.some(item => signature(item) === signature(entry))) existing.variants!.push({ ...entry })
+    }
+  }
+  return result
+}
+
 export function entriesFor(date: Date, timetable: Timetable): Entry[] {
   const key = dayKey(date)
   const weekday = (date.getDay() + 6) % 7 + 1
@@ -52,7 +76,7 @@ export function entriesFor(date: Date, timetable: Timetable): Entry[] {
   const regular = lessons.filter(entry => entry.date === key || (!entry.date && (entry.weekdayNumber ?? entry.dayOfWeek) === weekday))
   const exceptions = (timetable.exceptions || []).filter(entry => entry.date === key)
   const events = (timetable.events || []).filter(entry => entry.date === key)
-  return [...regular, ...exceptions, ...events].sort((a, b) => (a.startTime || a.time || '').localeCompare(b.startTime || b.time || '', 'ru'))
+  return combineSubgroups([...regular, ...exceptions, ...events]).sort((a, b) => (a.startTime || a.time || '').localeCompare(b.startTime || b.time || '', 'ru'))
 }
 
 export function selectedGroup(): Group | undefined { return state.groups.find(group => group.id === state.groupId) }

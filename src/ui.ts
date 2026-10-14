@@ -5,6 +5,7 @@ import { groupDescription, groupPicker } from './group-picker'
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
 function icon(name: string): string {
   const paths: Record<string, string> = {
+    appearance: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/>',
     down: '<path d="m6 9 6 6 6-6"/>', left: '<path d="m15 6-6 6 6 6"/>', right: '<path d="m9 6 6 6-6 6"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18m-12 4h.01m3 0h.01m3 0h.01m-6 3h.01m3 0h.01"/>',
     book: '<path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Z"/><path d="M12 6v14"/>',
@@ -35,10 +36,7 @@ function dataPeriod(): string {
 }
 
 export function teacherName(value = ''): string {
-  return value.split(/[,;]+/).map(name => {
-    const words = name.trim().split(/\s+/)
-    return words.length >= 3 && !/\./.test(words[1]) ? `${words[0]} ${words[1][0]}. ${words[2][0]}.` : name.trim()
-  }).filter(Boolean).join(', ')
+  return [...new Set(value.split(/[,;]+/).map(name => name.trim().replace(/\s+/g, ' ')).filter(Boolean))].join(', ')
 }
 export function cleanKind(value = ''): string {
   return [...new Set(value.split(/[,;]+/).map(part => part.trim()).filter(Boolean))].join(', ')
@@ -49,15 +47,19 @@ function lessonIcon(kind: string): string {
   if (/лекц|lecture/i.test(kind)) return 'book'
   return 'calendar'
 }
-function card(entry: Entry, index: number, feed = false): string {
+function card(entry: Entry, feed = false): string {
   const kind = cleanKind(entry.kind || entry.category || 'Занятие')
   const symbol = icon(lessonIcon(kind))
-  const teacher = teacherName(entry.teacher)
   const time = [entry.startTime, entry.endTime].filter(Boolean).join(' — ') || entry.time || 'Время не указано'
-  const place = [entry.isOnline ? 'Онлайн' : entry.room && `Аудитория ${entry.room}`, entry.address].filter(Boolean).join(' · ')
-  const details = `${teacher ? `<p>${esc(teacher)}</p>` : ''}${place ? `<p>${esc(place)}</p>` : ''}${entry.subgroup ? `<p>${esc(entry.subgroup)}</p>` : ''}${entry.note && entry.note !== kind ? `<p class="note">${esc(entry.note)}</p>` : ''}`
+  const variants = entry.variants || [entry]
+  const details = variants.map(variant => {
+    const teacher = teacherName(variant.teacher)
+    const place = [variant.isOnline ? 'Онлайн' : variant.room && `Аудитория ${variant.room}`, variant.address].filter(Boolean).join(' · ')
+    const content = `${variant.subgroup ? `<p class="subgroup-label">${esc(variant.subgroup)}</p>` : ''}${teacher ? `<p>${esc(teacher)}</p>` : ''}${place ? `<p>${esc(place)}</p>` : ''}${variant.note && variant.note !== kind ? `<p class="note">${esc(variant.note)}</p>` : ''}`
+    return variants.length > 1 ? `<div class="subgroup-details">${content}</div>` : content
+  }).join('')
   if (feed) return `<article class="feed-card glass"><span class="feed-symbol">${symbol}</span><div class="card-body"><div class="feed-title"><h3>${esc(entry.subject || 'Событие')}</h3><span class="feed-time">${esc(time)}</span></div><span class="badge">${esc(kind)}</span>${details}</div></article>`
-  return `<article class="timeline-row"><div class="timeline-rail" aria-hidden="true"><span>${index + 1}</span><i></i></div><div class="timeline-body"><div class="lesson-time">${esc(time)}</div><div class="lesson-card glass"><div class="card-body"><h3>${esc(entry.subject || 'Событие')}</h3><div class="lesson-kind">${esc(kind)}</div>${details}</div><span class="card-symbol">${symbol}</span></div></div></article>`
+  return `<article class="timeline-row"><div class="timeline-body"><div class="lesson-time">${esc(time)}</div><div class="lesson-card glass"><div class="card-body"><h3>${esc(entry.subject || 'Событие')}</h3><div class="lesson-kind">${esc(kind)}</div>${details}</div><span class="card-symbol">${symbol}</span></div></div></article>`
 }
 function days(): string {
   const start = monday(state.date)
@@ -76,11 +78,11 @@ function schedule(): string {
     const start = monday(state.date)
     return Array.from({ length: 7 }, (_, i) => shift(start, i)).map(date => {
       const items = entriesFor(date, state.timetable!)
-      return `<section class="feed-day"><h2>${esc(new Intl.DateTimeFormat('ru', { weekday: 'long', day: 'numeric', month: 'long' }).format(date))}</h2>${items.length ? items.map((entry, index) => card(entry, index, true)).join('') : '<p class="empty-small">Нет занятий</p>'}</section>`
+      return `<section class="feed-day"><h2>${esc(new Intl.DateTimeFormat('ru', { weekday: 'long', day: 'numeric', month: 'long' }).format(date))}</h2>${items.length ? items.map(entry => card(entry, true)).join('') : '<p class="empty-small">Нет занятий</p>'}</section>`
     }).join('')
   }
   const entries = entriesFor(state.date, state.timetable)
-  return entries.length ? entries.map((entry, index) => card(entry, index)).join('') : '<div class="message"><div class="empty-icon">✦</div><strong>На этот день событий нет</strong><span>Выберите другой день или неделю</span></div>'
+  return entries.length ? entries.map(entry => card(entry)).join('') : '<div class="message"><div class="empty-icon">✦</div><strong>На этот день событий нет</strong><span>Выберите другой день или неделю</span></div>'
 }
 
 function calendarSheet(): string {
@@ -95,9 +97,8 @@ function calendarSheet(): string {
     return `<button class="month-day ${date.getMonth() !== month.getMonth() ? 'outside' : ''} ${key === dayKey(state.date) ? 'active' : ''}" data-date="${key}" aria-label="${esc(new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' }).format(date))}" aria-pressed="${key === dayKey(state.date)}">${date.getDate()}<i class="${hasEvents ? 'has-items' : ''}"></i></button>`
   }).join('')}</div><button class="primary-button calendar-today" data-action="calendar-today">Сегодня</button>`
 }
-function settings(): string {
-  const group = selectedGroup()
-  return `<section class="settings-page"><h1>Настройки</h1><p class="screen-subtitle">Учебная группа и внешний вид</p><h2 class="settings-label">Учебная группа</h2><button class="settings-group glass" data-action="open-groups"><span><strong>${esc(group?.name || 'Выберите группу')}</strong><small>${group ? esc(groupDescription(group)) : 'Найдите свою учебную группу'}</small></span>${icon('right')}</button><h2 class="settings-label">Оформление</h2><div class="theme-options glass">${([['system','Как на устройстве','system'],['light','Светлая','sun'],['dark','Тёмная','moon']] as const).map(([value,label,symbol]) => `<button data-theme-choice="${value}" class="${state.theme === value ? 'selected' : ''}" aria-pressed="${state.theme === value}">${icon(symbol)}<span>${label}</span></button>`).join('')}</div><p class="settings-note">Timetable Hub<br>Расписание РУТ (МИИТ)</p></section>`
+function themeOptions(): string {
+  return `<div class="theme-options glass">${([['system','Авто','appearance'],['light','Светлая','sun'],['dark','Тёмная','moon']] as const).map(([value,label,symbol]) => `<button data-theme-choice="${value}" class="${state.theme === value ? 'selected' : ''}" aria-pressed="${state.theme === value}">${icon(symbol)}<span>${label}</span></button>`).join('')}</div>`
 }
 
 function weekRange(date: Date): string {
@@ -112,14 +113,30 @@ function weekLink(offset: number): string {
   return `<button class="week-link ${next ? 'next-week' : 'previous-week'}" data-action="${next ? 'next' : 'prev'}" aria-label="${next ? 'Следующая' : 'Предыдущая'} неделя: ${esc(weekRange(date))}">${next ? '' : icon('left')}<span>${esc(weekRange(date))}${parity ? `<small>${esc(parity)}</small>` : ''}</span>${next ? icon('right') : ''}</button>`
 }
 export function render(): void {
+  const previousDialog = document.querySelector<HTMLDialogElement>('dialog[open]')
+  const sameOverlay = !!previousDialog && previousDialog.dataset.overlay === state.overlay
+  const focusedTheme = sameOverlay && document.activeElement instanceof HTMLElement ? document.activeElement.dataset.themeChoice : undefined
   document.documentElement.dataset.theme = state.theme
+  const dark = state.theme === 'dark' || (state.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  let browserTheme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+  if (!browserTheme) {
+    browserTheme = document.createElement('meta')
+    browserTheme.name = 'theme-color'
+    document.head.append(browserTheme)
+  }
+  browserTheme.content = dark ? '#000000' : '#ffffff' 
   const app = document.querySelector<HTMLDivElement>('#app')!
   const range = weekRange(state.date)
   const group = selectedGroup()?.name || state.timetable?.group || 'Выберите группу'
   const dateTitle = `${new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' }).format(state.date)}, ${new Intl.DateTimeFormat('ru', { weekday: 'long' }).format(state.date)}`
   const semester = state.timetable?.semester
   const outsidePeriod = !!semester && (dayKey(state.date) < semester.startDate || dayKey(state.date) > semester.endDate)
-  const home = `<header class="app-header"><h1><button class="group-heading" data-action="open-groups" aria-label="Сменить группу: ${esc(group)}" aria-haspopup="dialog">${esc(group)}${icon('down')}</button></h1><p class="screen-subtitle">${state.view === 'events' ? 'События дня' : 'Лента событий'}</p><p class="group-caption">РУТ (МИИТ)${selectedGroup() ? ` · ${esc(groupDescription(selectedGroup()!))}` : ''}</p><div class="tabs" aria-label="Вид расписания"><button data-view="events" class="${state.view === 'events' ? 'selected' : ''}" aria-pressed="${state.view === 'events'}">События</button><button data-view="feed" class="${state.view === 'feed' ? 'selected' : ''}" aria-pressed="${state.view === 'feed'}">Лента</button></div></header><section class="content"><div class="date-heading"><h2>${esc(state.view === 'events' ? dateTitle : range)}</h2><button class="icon-button calendar-trigger" data-action="open-calendar" aria-label="Открыть календарь" aria-haspopup="dialog">${icon('calendar')}</button></div>${state.view === 'events' ? `<div class="week" aria-label="Дни недели">${days()}</div>` : ''}<div class="week-navigation">${weekLink(-7)}<button class="today-button" data-action="today">Сегодня</button>${weekLink(7)}</div>${outsidePeriod ? `<div class="outside-period">${dataPeriod()}</div>` : ''}<div class="schedule">${schedule()}</div><details class="source-details"><summary>Срок действия расписания</summary>${dataPeriod() || '<p>Выберите группу, чтобы увидеть расписание.</p>'}</details></section>`
-  app.innerHTML = `<main class="shell">${state.screen === 'home' ? home : settings()}<nav class="dock" aria-label="Навигация"><button data-screen="home" class="${state.screen === 'home' ? 'selected' : ''}" aria-current="${state.screen === 'home' ? 'page' : 'false'}">${icon('home')}<span>Главная</span></button><button data-screen="settings" class="${state.screen === 'settings' ? 'selected' : ''}" aria-current="${state.screen === 'settings' ? 'page' : 'false'}">${icon('settings')}<span>Настройки</span></button></nav></main>${state.overlay ? `<dialog class="sheet" aria-labelledby="sheet-title"><div class="sheet-handle" aria-hidden="true"></div><header class="sheet-header"><h2 id="sheet-title">${state.overlay === 'groups' ? 'Учебная группа' : 'Календарь'}</h2><button class="close-button" data-action="close-sheet" aria-label="Закрыть">${icon('close')}</button></header>${state.overlay === 'groups' ? `<p class="sheet-subtitle">РУТ (МИИТ)</p>${groupPicker()}` : calendarSheet()}</dialog>` : ''}`
-  if (state.overlay) document.querySelector<HTMLDialogElement>('dialog')!.showModal()
+  const home = `<header class="app-header"><div class="header-top"><h1><button class="group-heading" data-action="open-groups" aria-label="Сменить группу: ${esc(group)}" aria-haspopup="dialog">${esc(group)}${icon('down')}</button></h1><button class="icon-button theme-trigger glass" data-action="open-theme" aria-label="Настройка темы" aria-haspopup="dialog">${icon(state.theme === 'system' ? 'appearance' : state.theme === 'dark' ? 'moon' : 'sun')}</button></div><p class="screen-subtitle">${state.view === 'events' ? 'События дня' : 'Лента событий'}</p><p class="group-caption">РУТ (МИИТ)${selectedGroup() ? ` · ${esc(groupDescription(selectedGroup()!))}` : ''}</p><div class="tabs" aria-label="Вид расписания"><button data-view="events" class="${state.view === 'events' ? 'selected' : ''}" aria-pressed="${state.view === 'events'}">События</button><button data-view="feed" class="${state.view === 'feed' ? 'selected' : ''}" aria-pressed="${state.view === 'feed'}">Лента</button></div></header><section class="content"><div class="date-heading"><h2>${esc(state.view === 'events' ? dateTitle : range)}</h2><button class="icon-button calendar-trigger" data-action="open-calendar" aria-label="Открыть календарь" aria-haspopup="dialog">${icon('calendar')}</button></div>${state.view === 'events' ? `<div class="week" aria-label="Дни недели">${days()}</div>` : ''}<div class="week-navigation">${weekLink(-7)}<button class="today-button" data-action="today">Сегодня</button>${weekLink(7)}</div>${outsidePeriod ? `<div class="outside-period">${dataPeriod()}</div>` : ''}<div class="schedule">${schedule()}</div><details class="source-details"><summary>Срок действия расписания</summary>${dataPeriod() || '<p>Выберите группу, чтобы увидеть расписание.</p>'}</details></section>`
+  app.innerHTML = `<main class="shell">${home}</main>${state.overlay ? `<dialog data-overlay="${state.overlay}" class="sheet ${state.overlay === 'theme' ? 'theme-sheet' : ''}" aria-labelledby="sheet-title">${state.overlay === 'theme' ? '' : '<div class="sheet-handle" aria-hidden="true"></div>'}<header class="sheet-header"><h2 id="sheet-title">${state.overlay === 'groups' ? 'Учебная группа' : state.overlay === 'theme' ? 'Тема' : 'Календарь'}</h2><button class="close-button" data-action="close-sheet" aria-label="Закрыть">${icon('close')}</button></header>${state.overlay === 'groups' ? `<p class="sheet-subtitle">РУТ (МИИТ)</p>${groupPicker()}` : state.overlay === 'theme' ? themeOptions() : calendarSheet()}</dialog>` : ''}`
+  if (state.overlay) {
+    const dialog = document.querySelector<HTMLDialogElement>('dialog')!
+    if (sameOverlay) dialog.style.animation = 'none'
+    dialog.showModal()
+    if (focusedTheme) dialog.querySelector<HTMLButtonElement>(`[data-theme-choice="${focusedTheme}"]`)?.focus({ preventScroll: true })
+  }
 }
