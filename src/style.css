@@ -44,6 +44,18 @@ body { isolation: isolate; }
 body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background-color: var(--bg-end); background-image: radial-gradient(ellipse 240px 240px at 10% 12%, var(--glow-top), transparent 85%), radial-gradient(ellipse 280px 280px at 90% 83%, var(--glow-bottom), transparent 85%), linear-gradient(135deg, var(--bg-start), var(--bg-mid) 52%, var(--bg-end)); background-repeat: no-repeat; background-size: 100% 100%; }
 body { background: transparent; }
 
+/* Cover Safari's expanded viewport while its browser bars move. */
+@supports (-webkit-touch-callout: none) and (height: 100lvh) {
+  @media (display-mode: browser) and (hover: none) and (pointer: coarse) {
+    body::before {
+      bottom: auto;
+      height: calc(100lvh + env(safe-area-inset-bottom, 0px));
+      min-height: 100%;
+    }
+  }
+}
+
+
 button, input, select { font: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button, input, select { color: var(--text); }
