@@ -47,6 +47,7 @@ body { background: transparent; }
 /* Cover Safari's expanded viewport while its browser bars move. */
 @supports (-webkit-touch-callout: none) and (height: 100lvh) {
   @media (display-mode: browser) and (hover: none) and (pointer: coarse) {
+    :root { background: var(--browser-bg); }
     body::before {
       bottom: auto;
       height: calc(100lvh + env(safe-area-inset-bottom, 0px));
