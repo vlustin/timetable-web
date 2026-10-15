@@ -88,4 +88,22 @@ document.addEventListener('cancel', event => {
 }, true)
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (state.theme === 'system') render() })
 void init()
+// Keep the page-canvas gradient at the same scale and viewport position as the PWA.
+if (CSS.supports('-webkit-touch-callout', 'none')
+  && window.matchMedia('(display-mode: browser) and (hover: none) and (pointer: coarse)').matches) {
+  const root = document.documentElement
+  const syncBackground = () => {
+    root.style.setProperty('--safari-background-height', `${window.innerHeight}px`)
+    root.style.setProperty('--safari-background-offset', `${window.scrollY}px`)
+  }
+  let pendingFrame = false
+  const scheduleBackground = () => {
+    if (pendingFrame) return
+    pendingFrame = true
+    requestAnimationFrame(() => { pendingFrame = false; syncBackground() })
+  }
+  window.addEventListener('scroll', scheduleBackground, { passive: true })
+  window.addEventListener('resize', scheduleBackground)
+  syncBackground()
+}
 if ('serviceWorker' in navigator) window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js') })
