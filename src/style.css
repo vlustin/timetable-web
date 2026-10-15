@@ -51,8 +51,7 @@ body { background: transparent; }
       background-color: var(--bg-end);
       background-image: radial-gradient(ellipse 240px 240px at 10% 12%, var(--glow-top), transparent 85%), radial-gradient(ellipse 280px 280px at 90% 83%, var(--glow-bottom), transparent 85%), linear-gradient(135deg, var(--bg-start), var(--bg-mid) 52%, var(--bg-end));
       background-repeat: no-repeat;
-      background-size: 100% var(--safari-background-height, 100lvh);
-      background-position: 0 var(--safari-background-offset, 0px);
+      background-size: 100% 100%;
       background-attachment: scroll;
     }
     body::before { content: none; }
