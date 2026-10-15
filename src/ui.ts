@@ -119,14 +119,21 @@ export function render(): void {
   document.documentElement.dataset.theme = state.theme
   const mobileSafariBrowser = CSS.supports('-webkit-touch-callout', 'none')
     && window.matchMedia('(display-mode: browser) and (hover: none) and (pointer: coarse)').matches
-  let browserTheme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-  if (!browserTheme) {
-    browserTheme = document.createElement('meta')
-    browserTheme.name = 'theme-color'
-    document.head.append(browserTheme)
+  const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]')
+  if (mobileSafariBrowser && viewport && !viewport.content.includes('viewport-fit')) {
+    viewport.content += ', viewport-fit=cover'
   }
-  const browserThemeVariable = mobileSafariBrowser ? '--browser-bg' : '--bg-start'
-  browserTheme.content = getComputedStyle(document.documentElement).getPropertyValue(browserThemeVariable).trim()
+  let browserTheme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+  if (mobileSafariBrowser) {
+    browserTheme?.remove()
+  } else {
+    if (!browserTheme) {
+      browserTheme = document.createElement('meta')
+      browserTheme.name = 'theme-color'
+      document.head.append(browserTheme)
+    }
+    browserTheme.content = getComputedStyle(document.documentElement).getPropertyValue('--bg-start').trim()
+  }
   const app = document.querySelector<HTMLDivElement>('#app')!
   const range = weekRange(state.date)
   const group = selectedGroup()?.name || state.timetable?.group || (state.loading && state.groupId ? 'Загрузка группы…' : 'Выберите группу')
